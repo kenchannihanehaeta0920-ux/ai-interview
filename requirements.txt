@@ -1,5 +1,1 @@
 streamlit
-streamlit-mic-recorder
-google-generativeai
-requests
-gTTS

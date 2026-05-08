@@ -7,7 +7,7 @@ from google.oauth2 import service_account
 import io
 import datetime
 
-# --- 1. Google Drive 自動保存用の設定 ---
+# --- 1. Google Drive 自動保存用の設定（共有ドライブ対応版） ---
 def upload_to_drive(audio_bytes, filename):
     try:
         # StreamlitのSecretsからサービスアカウント情報を取得
@@ -15,7 +15,7 @@ def upload_to_drive(audio_bytes, filename):
         creds = service_account.Credentials.from_service_account_info(info)
         service = build('drive', 'v3', credentials=creds)
 
-        # 【重要】ここにGoogle Driveの保存先フォルダIDを入力してください
+        # 【重要】共有ドライブ内に作成した「新しいフォルダ」のIDを入力してください
         FOLDER_ID = "1uBO_fZYG-c4T7ORXxavpx-5YertAzAPb" 
         
         file_metadata = {
@@ -24,7 +24,13 @@ def upload_to_drive(audio_bytes, filename):
         }
         media = MediaIoBaseUpload(io.BytesIO(audio_bytes), mimetype='audio/wav')
         
-        service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+        # 共有ドライブへの書き込みを許可する設定（supportsAllDrives=True）を追加
+        service.files().create(
+            body=file_metadata, 
+            media_body=media, 
+            fields='id',
+            supportsAllDrives=True 
+        ).execute()
         return True
     except Exception as e:
         st.error(f"ドライブへの保存に失敗しました: {e}")
@@ -93,9 +99,14 @@ if audio:
         filename = f"interview_{timestamp}.wav"
         
         # 1. Google Driveへ自動保存を実行
-        upload_to_drive(audio['bytes'], filename)
+        success = upload_to_drive(audio['bytes'], filename)
         
-        # 2. Gemini AIへ音声を送信して解析
+        # 保存に失敗した場合は処理を中断（AIの連続エラーを防ぐため）
+        if not success:
+            st.warning("音声の保存に失敗したため、AI面談を一時中断します。共有ドライブの設定を確認してください。")
+            st.stop()
+        
+        # 2. 保存成功時のみ、Gemini AIへ音声を送信して解析
         audio_part = {"mime_type": "audio/wav", "data": audio['bytes']}
         response = st.session_state.chat.send_message([audio_part, "学生からの返答です。教員として次の問いを投げてください。"])
         

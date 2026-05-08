@@ -16,7 +16,7 @@ def upload_to_drive(audio_bytes, filename):
         service = build('drive', 'v3', credentials=creds)
 
         # 【重要】ここにGoogle Driveの保存先フォルダIDを入力してください
-        FOLDER_ID = "https://drive.google.com/drive/folders/1uBO_fZYG-c4T7ORXxavpx-5YertAzAPb?usp=drive_link" 
+        FOLDER_ID = "1uBO_fZYG-c4T7ORXxavpx-5YertAzAPb" 
         
         file_metadata = {
             'name': filename,

@@ -46,14 +46,16 @@ if api_key:
 if "messages" not in st.session_state:
     st.session_state.messages = []
     try:
-        # 名前を最も正規な形式である "models/gemini-1.5-flash-001" に指定します
+        # 枝葉を切り落とした最もシンプルな名前を指定します
         model = genai.GenerativeModel(
-            model_name="models/gemini-1.5-flash-001",
-            system_instruction="あなたは救急医療学科の厳格な教員です。指示不備の要因を分析させてください。"
+            model_name="gemini-1.5-flash", 
+            system_instruction="あなたは救急医療学科の教員です。指示不備の要因を分析させてください。"
         )
         st.session_state.chat = model.start_chat(history=[])
     except Exception as e:
-        st.error(f"AIの準備中にエラーが発生しました。APIキーまたはモデル名の設定を確認してください: {e}")
+        # 万が一失敗した時、あなたのAPIキーで使えるモデルを画面に表示します（原因特定のため）
+        available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        st.error(f"AI起動失敗。利用可能なモデル例: {available_models[:3]}")
         st.stop()
 
 # --- 4. 音声入力と自動処理 ---

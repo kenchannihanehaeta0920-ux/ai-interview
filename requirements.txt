@@ -1,7 +1,4 @@
-google-generativeai
 streamlit
-google-generativeai
-streamlit
-google-api-python-client
-google-auth
 streamlit-mic-recorder
+google-generativeai
+requests

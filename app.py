@@ -39,8 +39,18 @@ if "GOOGLE_API_KEY" in st.secrets:
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
-    model = genai.GenerativeModel("gemini-1.5-flash", system_instruction="あなたは厳格な教員です。指示不備の要因を分析させてください。")
-    st.session_state.chat = model.start_chat(history=[])
+    
+    try:
+        # モデル名を 'models/' から始まる正式名称に変更
+        model = genai.GenerativeModel(
+            model_name="models/gemini-1.5-flash",
+            system_instruction="あなたは厳格な教員です。指示不備の要因を分析させてください。"
+        )
+        # チャットセッションを開始
+        st.session_state.chat = model.start_chat(history=[])
+    except Exception as e:
+        st.error(f"AIの準備中にエラーが発生しました。APIキーの設定を確認してください: {e}")
+        st.stop()
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):

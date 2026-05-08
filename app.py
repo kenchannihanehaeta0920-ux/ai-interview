@@ -1,9 +1,37 @@
 import streamlit as st
 import google.generativeai as genai
+from streamlit_mic_recorder import mic_recorder
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
+from google.oauth2 import service_account
+import io
+import datetime
 
-# --- 1. 認証設定 ---
-# 学生に伝えるパスワードです。必要に応じて変更してください。
-ACCESS_PASSWORD = "nittai2026" 
+# --- 1. Google Drive 自動保存用の設定 ---
+def upload_to_drive(audio_bytes, filename):
+    try:
+        # StreamlitのSecretsからサービスアカウント情報を取得
+        info = st.secrets["gcp_service_account"]
+        creds = service_account.Credentials.from_service_account_info(info)
+        service = build('drive', 'v3', credentials=creds)
+
+        # 【重要】ここにGoogle Driveの保存先フォルダIDを入力してください
+        FOLDER_ID = "d77ced386b69bec033cadebb593f598622d6f7b5" 
+        
+        file_metadata = {
+            'name': filename,
+            'parents': [FOLDER_ID]
+        }
+        media = MediaIoBaseUpload(io.BytesIO(audio_bytes), mimetype='audio/wav')
+        
+        service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+        return True
+    except Exception as e:
+        st.error(f"ドライブへの保存に失敗しました: {e}")
+        return False
+
+# --- 2. 認証設定 ---
+ACCESS_PASSWORD = "nittai2026"
 
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
@@ -20,28 +48,27 @@ if not st.session_state.authenticated:
             st.error("コードが正しくありません")
     st.stop()
 
-# --- 2. メイン機能 ---
+# --- 3. AI・チャット設定 ---
 st.title("🚑 モラルガイダンス特別面談")
 st.caption("指示不備の要因分析と再発防止策の検討")
+st.info("※この面談は音声入力のみです。ご自身の言葉でしっかり話してください。")
 
 if "GOOGLE_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
 else:
-    st.error("APIキーが設定されていません。StreamlitのSecrets設定を確認してください。")
+    st.error("APIキーが設定されていません。")
 
-# AI Studioでテストした指示内容です
 SYSTEM_INSTRUCTION = """
 あなたは救急医療学科のリスク管理担当教員です。
 指示（点数のスクショ提出）を守れなかった学生に対し、要因を掘り下げる面談を行います。
-1. なぜ「スクショ忘れ」が起きたのか、確認プロセスを振り返らせる。
-2. 医療現場での「記録漏れ」に例えて、そのリスクを自覚させる。
-3. 最後に、具体的な（「気をつけます」以外の）再発防止策を宣言させる。
+1. なぜ「スクショ忘れ」が起きたのか、本人の声を聞き、確認プロセスを振り返らせる。
+2. 医療現場での「記録漏れ」に例えて、その重大なリスクを自覚させる。
+3. 最後に、具体的な（「気をつけます」以外の）再発防止策を本人の口から宣言させる。
 丁寧ですが、厳格なプロの姿勢で対応してください。
 """
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
-    # 2026年現在、最も安定しているモデルを指定しています
     model = genai.GenerativeModel("gemini-1.5-flash", system_instruction=SYSTEM_INSTRUCTION)
     st.session_state.chat = model.start_chat(history=[])
 
@@ -50,13 +77,29 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# 学生の入力処理
-if prompt := st.chat_input("先生に状況を説明してください"):
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
+# --- 4. 音声入力と自動処理 ---
+st.write("---")
+st.write("🎤 **ボタンを押して話し、話し終わったらもう一度押してください**")
+audio = mic_recorder(
+    start_prompt="面談を開始する（録音）",
+    stop_prompt="話を送信する（録音終了）",
+    key='recorder'
+)
 
-    response = st.session_state.chat.send_message(prompt)
-    st.session_state.messages.append({"role": "assistant", "content": response.text})
-    with st.chat_message("assistant"):
-        st.markdown(response.text)
+if audio:
+    with st.spinner("AIが確認中 ＆ ドライブへ録音を保存中..."):
+        # ファイル名を「日付_時刻.wav」で作成
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"interview_{timestamp}.wav"
+        
+        # 1. Google Driveへ自動保存を実行
+        upload_to_drive(audio['bytes'], filename)
+        
+        # 2. Gemini AIへ音声を送信して解析
+        audio_part = {"mime_type": "audio/wav", "data": audio['bytes']}
+        response = st.session_state.chat.send_message([audio_part, "学生からの返答です。教員として次の問いを投げてください。"])
+        
+        # 3. 画面に反映
+        st.session_state.messages.append({"role": "user", "content": f"（音声を送信しました：{filename}）"})
+        st.session_state.messages.append({"role": "assistant", "content": response.text})
+        st.rerun()

@@ -46,16 +46,27 @@ if api_key:
 if "messages" not in st.session_state:
     st.session_state.messages = []
     try:
-        # 枝葉を切り落とした最もシンプルな名前を指定します
+        # 1. あなたのAPIキーで今すぐ使える「flash」モデルの名前を自動検索します
+        available_models = [m.name for m in genai.list_models() 
+                           if 'generateContent' in m.supported_generation_methods 
+                           and 'flash' in m.name.lower()]
+        
+        if available_models:
+            # 一番確実な名前（models/gemini-1.5-flashなど）を自動でセット
+            target_model = available_models[0]
+        else:
+            # 万が一検索に失敗した時の予備
+            target_model = "gemini-1.5-flash"
+
+        # 2. 自動で見つけた名前を使ってAIを起動
         model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash", 
-            system_instruction="あなたは救急医療学科の教員です。指示不備の要因を分析させてください。"
+            model_name=target_model,
+            system_instruction="あなたは救急医療学科の厳格な教員です。指示不備の要因を分析させてください。"
         )
         st.session_state.chat = model.start_chat(history=[])
+        
     except Exception as e:
-        # 万が一失敗した時、あなたのAPIキーで使えるモデルを画面に表示します（原因特定のため）
-        available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        st.error(f"AI起動失敗。利用可能なモデル例: {available_models[:3]}")
+        st.error(f"AIの準備中にエラーが発生しました。APIキーの設定（有効化）を確認してください: {e}")
         st.stop()
 
 # --- 4. 音声入力と自動処理 ---

@@ -1,18 +1,18 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# ページの設定（ブラウザのタブ名など）
+# ページの設定
 st.set_page_config(page_title="救急医療学科 特別面談室", layout="centered")
 
-# タイトルと説明文
+# タイトル
 st.title("🚑 特別個別面談（ロジスティクス・モラル編）")
 st.write("---")
 
-st.warning("⚠️ **これは救急医療現場での『記録の正確性』と『指示の遵守』を学ぶためのシミュレーションです。**")
-st.info("下のアイコンをクリックして、面談を開始してください。マイクの使用を求められた場合は『許可』を選択すること。")
+# 学生への案内（教育的な意図を明記）
+st.warning("⚠️ **本面談は、救急医療現場における『規律』と『記録の正確性』を再確認するための演習です。**")
+st.info("右下のアイコンをクリックして面談を開始してください。感情的な弁明ではなく、プロフェッショナルとしての論理的な説明を求めます。")
 
-# ElevenLabs ウィジェットの埋め込み
-# 先生専用のエージェントID（agent_2601kr2yvn8rf77vb25f0zhd85jz）を使用
+# ElevenLabs ウィジェット（先生のエージェントIDを反映済み）
 components.html(
     """
     <div style="display: flex; justify-content: center; align-items: center; height: 500px;">
